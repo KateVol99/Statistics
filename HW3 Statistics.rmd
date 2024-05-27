@@ -1,0 +1,171 @@
+---
+title: "Lizard hematology"
+output: 
+  html_document: 
+    theme: readable
+---
+
+```{r setup, include=FALSE}
+library (gtsummary)
+theme_gtsummary_compact()
+library (ggplot2)
+library(dplyr)
+library(gt)
+library(forcats)
+library(tidyr)
+library(reshape2)
+library(lessR)
+library(readxl)
+```
+
+On the first step we make a preparation and cleaning of our data. 
+
+1. We delete all columns which are not required in the task
+2. Rename columns
+3. Recode cods in text
+
+```{r}
+
+lizard <- read_excel("D:/help_collegues/Sleepy lizard.xlsx")
+lizard1 <- subset (lizard, select = -c (2:3, 8:12, 19:23))
+names(lizard1)[6] <- "Total number of white blood cells"
+names(lizard1)[7] <- "Total number of heterophils"
+names(lizard1)[8] <- "Total number of lymphocytes"
+names(lizard1)[9] <- "Ratio of heterophils to lymphocytes"
+names(lizard1)[10] <- "Monocyte count"
+names(lizard1)[11] <- "Number of other granulocytes"
+
+lizard1$Treatment <- as.character(lizard1$Treatment)
+lizard1 ['Treatment'][lizard1 ['Treatment'] == "1"] <- "Unmodified landscape"
+lizard1 ['Treatment'][lizard1 ['Treatment'] == "2"] <- "Heavily modified landscape"
+
+lizard1$Habitat <- as.character(lizard1$Habitat)
+lizard1 ['Habitat'][lizard1 ['Habitat'] == "1"] <- "Remnants of natural vegetation"
+lizard1 ['Habitat'][lizard1 ['Habitat'] == "2"] <- "Swale plantings"
+lizard1 ['Habitat'][lizard1 ['Habitat'] == "3"] <- "Fields with crops or under fallow"
+
+lizard1$`Landscape ID` <- as.character(lizard1$`Landscape ID`)
+lizard1 ['Landscape ID'][lizard1 ['Landscape ID'] == "1"] <- "LS1"
+lizard1 ['Landscape ID'][lizard1 ['Landscape ID'] == "3"] <- "LS2"
+lizard1 ['Landscape ID'][lizard1 ['Landscape ID'] == "4"] <- "LS3"
+
+lizard1$Connectivity <- as.character(lizard1$Connectivity)
+lizard1 ['Connectivity'][lizard1 ['Connectivity'] == "1"] <- "Low (< 63%)"
+lizard1 ['Connectivity'][lizard1 ['Connectivity'] == "3"] <- "Medium (63-88%)"
+lizard1 ['Connectivity'][lizard1 ['Connectivity'] == "4"] <- "High (88%)"
+lizard1 ['Connectivity'][lizard1 ['Connectivity'] == "5"] <- "Fully connected sites"
+
+```
+
+### 1 а. Does the blood composition of lizards from unmodified and heavily modified landscapes differ?
+
+We didn't conduct the check on normal distribution, that's why we represent all numerical categories as Me (IQR), Min - Max. For the group comparing we use nonparametrical Wilcoxon rank sum test (Mann-Whitney U test). If p-value <0.05, we state differences as statistical significant. 
+
+```{r}
+
+task_1_a <- subset (lizard1, select = -c (1, 3:5))
+
+
+ task_1_a%>%
+   tbl_summary(
+    by = "Treatment",
+    type = list(c('Total number of white blood cells', 'Total number of heterophils', 'Total number of lymphocytes', 'Ratio of heterophils to lymphocytes', 'Monocyte count', 'Number of other granulocytes') ~ "continuous2"),
+    digits = list(c('Total number of white blood cells', 'Total number of heterophils', 'Total number of lymphocytes', 'Ratio of heterophils to lymphocytes', 'Monocyte count', 'Number of other granulocytes') ~ (2)),
+    statistic = list (
+      all_continuous()~ c("{median} ({p25}; {p75})", "{min} - {max}")
+    )
+  )%>%
+  add_p(
+        )
+  
+
+
+
+```
+
+As we see, there are not statistical significant differences in total number of lymphocytes and monocyte count within the characteristic of landscape but there are so in 4 parameters: total number of white blood cells, total number of heterophils, ratio of heterophils to lymphocytes, number of other granulocytes.	
+
+### 1 b. Check whether blood composition of lizards in different habitats differs between lizards from the highly modified landscape
+
+For this task we delete rows with Unmodified landscape lizards. We conduct non-parametric Kruskal-Wallist test.
+
+```{r}
+
+task_1_b <- lizard1[!(lizard1$Treatment =="Unmodified landscape"),]
+task_1_b <- subset (task_1_b, select = -c (1, 2, 4, 5))
+
+task_1_b%>%
+   tbl_summary(
+    by = "Habitat",
+    type = list(c('Total number of white blood cells', 'Total number of heterophils', 'Total number of lymphocytes', 'Ratio of heterophils to lymphocytes', 'Monocyte count', 'Number of other granulocytes') ~ "continuous2"),
+    digits = list(c('Total number of white blood cells', 'Total number of heterophils', 'Total number of lymphocytes', 'Ratio of heterophils to lymphocytes', 'Monocyte count', 'Number of other granulocytes') ~ (2)),
+    statistic = list (
+      all_continuous()~ c("{median} ({p25}; {p75})", "{min} - {max}")
+    )
+  )%>%
+  add_p(
+        )
+
+```
+
+There are not statistical significant differences in blood composition between three habitats
+
+### 1 c. Test whether the degree of connectivity affects the blood composition of lizards from the highly modified landscape
+
+As in the previous task, we delete unmodified landscape rows and use K-W test for comparing blood composition of lizards between the degree of connectivity affects.
+
+```{r, echo=FALSE}
+
+task_1_c <- lizard1[!(lizard1$Treatment =="Unmodified landscape"),]
+task_1_c <- subset (task_1_c, select = -c (1:4))
+
+
+task_1_c%>%
+   mutate (Connectivity = factor (Connectivity, levels = c("Low (< 63%)", "Medium (63-88%)", "High (88%)", "Fully connected sites"))) %>%  
+   tbl_summary(
+    by = "Connectivity",
+    type = list(c('Total number of white blood cells', 'Total number of heterophils', 'Total number of lymphocytes', 'Ratio of heterophils to lymphocytes', 'Monocyte count', 'Number of other granulocytes') ~ "continuous2"),
+    digits = list(c('Total number of white blood cells', 'Total number of heterophils', 'Total number of lymphocytes', 'Ratio of heterophils to lymphocytes', 'Monocyte count', 'Number of other granulocytes') ~ (2)),
+    statistic = list (
+      all_continuous()~ c("{median} ({p25}; {p75})", "{min} - {max}")
+    )
+  )%>%
+  add_p(
+        )
+
+```
+
+There are not statistical difference between 4 degrees of connectivity affects.
+
+### 2 d. Whether the blood composition of lizards from a highly modified landscape is affected by habitat type and degree of connectivity
+
+For this task we removed Unmodified landscape again, left 2 grouping variables and blood composition's variables. Then we compared degree of connectivity in every Habitat type's group. 
+
+```{r}
+
+task_2_d <- lizard1[!(lizard1$Treatment =="Unmodified landscape"),]
+task_2_d <- subset (task_2_d, select = -c (1, 2, 4))
+
+
+task_2_d%>%
+   mutate (Connectivity = factor (Connectivity, levels = c("Low (< 63%)", "Medium (63-88%)", "High (88%)", "Fully connected sites"))) %>%  
+   tbl_strata(
+    strata =Habitat,
+    .tbl_fun =
+      ~ .x %>%
+   tbl_summary(
+    by = "Connectivity",
+    type = list(c('Total number of white blood cells', 'Total number of heterophils', 'Total number of lymphocytes', 'Ratio of heterophils to lymphocytes', 'Monocyte count', 'Number of other granulocytes') ~ "continuous2"),
+    digits = list(c('Total number of white blood cells', 'Total number of heterophils', 'Total number of lymphocytes', 'Ratio of heterophils to lymphocytes', 'Monocyte count', 'Number of other granulocytes') ~ (2)),
+    statistic = list (
+      all_continuous()~ c("{median} ({p25}; {p75})", "{min} - {max}")
+    )
+  )%>%
+  add_p(
+        ))
+
+```
+
+As we see, there are no significant differences, so we can make a conclusion that the blood composition of lizards from a highly modified landscape is not affected by habitat type and degree of connectivity but a huge limitation of this task is a very low sample size number especially in Swale plantings Fully connected sites and Remnants of natural vegetation Fully connected sites. So we need more observations to make our conclusions more reliable.
+
+

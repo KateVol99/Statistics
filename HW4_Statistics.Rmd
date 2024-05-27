@@ -1,0 +1,73 @@
+```{r include=FALSE}
+library(vegan)
+library(ggvegan)
+library(readxl)
+library(zoo)
+```
+
+```{r}
+f_path <- "C:\\Users\\Derin\\Desktop\\Grazing_Magierowski_et_al_2015.xls"
+sheets <- excel_sheets(f_path)
+dfs <- list()
+for (sheet in sheets) {
+  dfs[[sheet]] <- read_excel(f_path, sheet = sheet)
+}
+```
+
+```{r}
+ff <- dfs$fauna[, -1]
+env <- dfs$env[,-1]
+```
+
+```
+In both env and flora & fauna datasets the samples (river) are correspond in order to each other, will be ommited for cca
+```
+
+```{r}
+env_numeric <- sapply(env[,-ncol(env)], as.numeric, na.rm = TRUE)
+env_c <- as.data.frame(na.aggregate(env_numeric, FUN = mean))
+env_c$GrazingRank <- dfs$env$GrazingRank
+
+grz_cca <- cca(ff ~ ., data = env_c[, -1])
+```
+
+```
+Substract all NA in env observation by mean, get GrazingRank metric back to env_c -> perform cca on all env metrics
+```
+
+```{r}
+summary(grz_cca)
+vif.cca(grz_cca)
+```
+```
+The inertia explained by environmental factors accounts for 77.07% of the total inertia, wherein the residual inertia, not explained by the env variables, is 22.93%, so results suggest that the environmental variables included in the analysis have a substantial influence on the composition of flora and fauna, explaining a large portion of the variation observed in the data
+
+From the biplot: Grazing, Regulation, Alkalinity, Average algae cover and Conductivity are higly positevely associated with higher values of species scores along the CCA axises, at the same time Shading and N-N otherwise 
+```
+
+```{r}
+plot(grz_cca, scaling ="sites")
+```
+
+
+```{r}
+plot(grz_cca, scaling ="species")
+```
+
+```
+From the plots, it can be assumed that certain groups of variables might act together to influence the community (for instance - Regulation + Grazing, Chemical varibels and temperature), so there might be some multicollinearity or redundancy among env variables. In general it is evident that the species have the abundancy trend toward some conditions
+```
+```{r}
+anova(grz_cca, by = "mar")
+```
+
+```{r}
+anova(grz_cca, by = "term")
+```
+
+```
+In summary anova tests showed significant factors: Regulation and Average Turbidity as the marginal effects of each environmental variable individually.
+However, results from plots suggested some multicollinearity, so results from  combinations of multiple env variables migh be reliable. Hence Regulation, Temperature, Conductivity and Average Turbidity are significant factors, which affect flora and fauna compotistions in/beside the reivers
+```
+
+
